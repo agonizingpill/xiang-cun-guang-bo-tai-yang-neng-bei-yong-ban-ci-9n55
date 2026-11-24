@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, CheckConstraint, Column, Float, ForeignKey, Integer, JSON, String, Table
+from sqlalchemy import Column, Float, ForeignKey, String, Table
 
 from core.db import metadata
 
@@ -9,5 +9,6 @@ reserves = Table('reserves', metadata,
     Column('plan_wh', Float, nullable=False),
     Column('fallback', String(160), nullable=False),
     Column('mae', Float, nullable=False),
+    Column('model', String(64), nullable=False),
     Column('token', String(64), nullable=False, unique=True),
 )

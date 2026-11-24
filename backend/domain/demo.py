@@ -299,6 +299,7 @@ FIXTURES = [
   'plan_wh': 101,
   'fallback': '受控中继',
   'mae': 8.1,
+  'model': 'fourier',
   'token': 'RV-SEED'}]),
     (switchcards, [{'code': 'SW-00',
   'reserve': 'RV-00',

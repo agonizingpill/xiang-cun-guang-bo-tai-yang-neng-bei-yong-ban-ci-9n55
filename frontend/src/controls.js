@@ -8,6 +8,9 @@ function input(field) {
   if (field.kind === 'bool') return el('select', {name:field.name},
     el('option',{value:'true', selected:fallback(field) === true ? '' : undefined},'是'),
     el('option',{value:'false', selected:fallback(field) === false ? '' : undefined},'否'));
+  if (field.kind === 'select') return el('select', {name:field.name},
+    ...field.options.map(option => el('option',
+      {value:option.value, selected:option.value === fallback(field) ? '' : undefined}, option.label)));
   if (field.kind === 'json') return el('textarea', {name:field.name, required:''}, JSON.stringify(fallback(field), null, 2));
   const numeric = ['int','float'].includes(field.kind);
   return el('input',{name:field.name, required:'', type:numeric ? 'number' : 'text',

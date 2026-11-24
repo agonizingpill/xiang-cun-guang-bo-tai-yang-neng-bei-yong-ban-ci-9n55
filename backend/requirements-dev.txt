@@ -1,0 +1,4 @@
+# 仅测试/本地验证需要，应用运行时不需要。
+pytest
+fakeredis
+httpx

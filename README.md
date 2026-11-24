@@ -53,11 +53,39 @@ Compose 运行 Nginx、Python FastAPI、独立 Redis 消费进程、SQL 数据�
 |---|---|---|
 | 节目时段表 | `/airslots` /airslots/mark-offline | `frontend/src/pages/airslots.js` |
 | 蓄电班记与测量 | `/battery_logs` /battery_logs/log-charge，/battery_logs/approve-meter | `frontend/src/pages/battery_logs.js` |
-| 备用分钟核算 | `/reserves` /reserves/forecast-wh，/reserves/save-reserve | `frontend/src/pages/reserves.js` |
+| 备用分钟核算 | `/reserves` /reserves/forecast-wh，/reserves/save-reserve，/reserves/trial-models，/reserves/enable-model，/reserves/active-model，/reserves/model-activations | `frontend/src/pages/reserves.js` |
 | 班组备播卡 | `/switchcards` /switchcards/issue-switch，/switchcards/handover | `frontend/src/pages/switchcards.js` |
 
-SQL 实体与约束在 `backend/domain` 下维护。前端使用原生 ES modules。核心算子为 Fourier 基 + OLS。OLS 在训练时段拟合一、二阶谐波和晴天标记。备用量为截零后的点预测加末 6 小时 MAE。
+SQL 实体与约束在 `backend/domain` 下维护。前端使用原生 ES modules。
+
+### 预测模型与启用治理
+
+注册于 `backend/domain/learning.py` 的两个模型，均输出末 6 小时留出 MAE 与点预测备用量：
+
+- `fourier`（现用默认）：24 小时 Fourier 基（一、二阶谐波）+ 晴天标记的 OLS，备用量为截零点预测加 MAE。
+- `persistence`（候选新模型）：拿前一天同一时刻的审签用量做预测（24 小时滞后基准），留出段逐点与实际比 MAE。
+
+模型启用规则（见 `model_control_service.py`）：
+
+1. `/reserves/trial-models` 把两个模型放进同一个计算任务，用同一批连续 36 小时审签读数、同一段末 6 小时各自回测，得到对照/候选两个 MAE。
+2. `/reserves/enable-model` 仅复核员可提交；候选 MAE 必须严格小于对照 MAE，且试算固化的对照模型仍是当前现用模型，否则拒绝。两份启用申请并发时，设置单行行锁串行化，只有仍以现用模型为对照的那份能生效。
+3. 同一试算号重试启用是幂等的：不重复切换，原样返回既有启用单与原凭据（`MA-xx` 编号）。
+4. 预测任务入队时把当前模型快照写进 payload，已排队任务始终沿用排队时的模型；启用后的新模型只影响之后入队的请求。
+5. 启用时把试算依据（两种模型、两个 MAE、留出小时、审签行数与小时范围等）固化到 `model_activations` 表；Redis 试算记录（24 小时过期）失效后，备用核算页面仍可通过 `/reserves/model-activations` 查到启用依据。`model_settings` 单行保存现用模型指针。
 
 按模拟广播班记推演。卡片供人工值守查阅，应用只处理纸本条件的数字记录。
+
+## 测试
+
+后端测试不依赖 MySQL/Redis 服务，使用内存 SQLite 与 fakeredis：
+
+```sh
+pip install -r backend/requirements-dev.txt
+cd backend
+python -m pytest tests/test_learning.py tests/test_workflow.py   # 单元与端到端工作流（15 项）
+python tests/test_concurrency.py                                # 双线程并发启用语义
+```
+
+前端为原生 ES modules，`node --check` 可做语法检查；`tests/` 之外的 DOM 冒烟可用 jsdom 驱动 `frontend/src/pages/reserves.js`。
 
 [MIT](LICENSE)

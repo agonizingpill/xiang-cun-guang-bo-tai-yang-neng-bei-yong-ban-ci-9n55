@@ -16,6 +16,9 @@ from scripts.seed_demo import seed
 async def lifespan(app):
     from core.db import engine
     metadata.create_all(engine)
+    with transaction() as conn:
+        from domain.model_control_service import ensure_settings
+        ensure_settings(conn)
     if SEED_DEMO:
         try:
             seed()
